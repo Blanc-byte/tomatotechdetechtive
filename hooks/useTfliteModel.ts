@@ -105,15 +105,12 @@ export function useTfliteModel() {
     outputs: Record<any, any>,
     outputClasses: Record<any, any>
   ) => {
-    // Find the key of the highest value
     const maxKey = Object.keys(outputs).reduce((a, b) =>
       outputs[a] > outputs[b] ? a : b
     );
 
-    // Get the highest value
     const maxValue = outputs[maxKey];
 
-    // Get the disease name using the key
     const className: string = String(outputClasses[maxKey]);
 
     return {

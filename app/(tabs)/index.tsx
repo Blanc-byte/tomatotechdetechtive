@@ -7,23 +7,37 @@ import {
   Modal,
   TouchableOpacity,
   Image,
+  Alert,
 } from "react-native";
 import { useTfliteModel } from "@/hooks/useTfliteModel";
 import { loadTensorflowModel } from "react-native-fast-tflite";
 import * as ImagePicker from "expo-image-picker";
 import * as ImageManipulator from "expo-image-manipulator";
-import { AntDesign } from "@expo/vector-icons"; // For the camera icon
+import { AntDesign } from "@expo/vector-icons"; 
 import { plantDiseaseClasses } from "@/assets/model/modelCLasses";
+
 export default function HomeScreen() {
+  const {
+    isDrawerOpen,
+    setIsDrawerOpen,
+    confidence,
+    setConfidence,
+    classification,
+    setClassification,
+    isModelPredicting,
+    setIsModelPredicting,
+    model,
+    setModel,
+    runModelPrediction,
+  } = useTfliteModel();
+  
   const [isTfReady, setIsTfReady] = useState(false);
   const [loadStatus, setLoadStatus] = useState("Initializing...");
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
-  const { setModel, runModelPrediction, classification, confidence } =
-    useTfliteModel();
+  const [isOptionsVisible, setIsOptionsVisible] = useState(false);
 
-  // Ensure TensorFlow is ready before classifying
   useEffect(() => {
     const initializeTf = async () => {
       setIsTfReady(true);
@@ -39,43 +53,34 @@ export default function HomeScreen() {
     setModel(tfliteModel);
   };
 
-  // Handle Image Selection
-  const handleImageSelection = async () => {
-    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permissionResult.granted) {
-      alert("Permission to access the camera roll is required!");
-      return;
-    }
-
-    const pickerResult = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-    });
-
-    if (!pickerResult.canceled) {
-      processImage(pickerResult.assets[0].uri);
+  const openCamera = async () => {
+    try {
+      const cameraOptions = { mediaTypes: ImagePicker.MediaTypeOptions.Images };
+      const result = await ImagePicker.launchCameraAsync(cameraOptions);
+      if (!result.canceled) {
+        processImage(result.assets[0].uri);
+      } else {
+        console.log("User canceled camera.");
+      }
+    } catch (error) {
+      console.error("Error capturing image:", error);
     }
   };
 
-  // Handle Image Capture
-  const handleImageCapture = async () => {
-    const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
-    if (!permissionResult.granted) {
-      alert("Permission to access the camera is required!");
-      return;
-    }
-
-    const cameraResult = await ImagePicker.launchCameraAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-    });
-
-    if (!cameraResult.canceled) {
-      processImage(cameraResult.assets[0].uri);
+  const openGallery = async () => {
+    try {
+      const galleryOptions = { mediaTypes: ImagePicker.MediaTypeOptions.Images };
+      const result = await ImagePicker.launchImageLibraryAsync(galleryOptions);
+      if (!result.canceled) {
+        processImage(result.assets[0].uri);
+      } else {
+        console.log("User canceled gallery.");
+      }
+    } catch (error) {
+      console.error("Error selecting image:", error);
     }
   };
 
-  // Process Image
   const processImage = async (imageUri: string) => {
     setIsProcessing(true);
     try {
@@ -86,7 +91,7 @@ export default function HomeScreen() {
       );
       setSelectedImage(manipulatedImage.uri);
       setIsModalVisible(true);
-      runModelPrediction(manipulatedImage.uri, "float32", plantDiseaseClasses); // Replace {} with actual classes
+      runModelPrediction(manipulatedImage.uri, "float32", plantDiseaseClasses);
     } catch (error) {
       console.error("Error processing image:", error);
     } finally {
@@ -96,60 +101,58 @@ export default function HomeScreen() {
 
   return (
     <View style={styles.container}>
-      {!isTfReady ? (
-        <>
-          <ActivityIndicator size="large" color="#0000ff" />
-          <Text style={styles.status}>{loadStatus}</Text>
-        </>
-      ) : (
-        <>
-          <TouchableOpacity
-            style={styles.button}
-            onPress={() => handleImageSelection()}
-          >
-            <AntDesign name="picture" size={24} color="white" />
-            <Text style={styles.buttonText}>Select Image</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.button}
-            onPress={() => handleImageCapture()}
-          >
-            <AntDesign name="camera" size={24} color="white" />
-            <Text style={styles.buttonText}>Capture Image</Text>
-          </TouchableOpacity>
-        </>
-      )}
-
-      {/* Loading Screen */}
-      {isProcessing && (
-        <View style={styles.loadingOverlay}>
-          <ActivityIndicator size="large" color="#fff" />
-          <Text style={styles.loadingText}>Processing Image...</Text>
-        </View>
-      )}
-
-      {/* Modal for Result */}
       <Modal visible={isModalVisible} animationType="slide" transparent>
         <View style={styles.modalContainer}>
           <View style={styles.modalContent}>
             {selectedImage && (
               <Image source={{ uri: selectedImage }} style={styles.image} />
             )}
-            <Text style={styles.resultText}>
-              Classification: {classification || "N/A"}
-            </Text>
-            <Text style={styles.resultText}>
-              Confidence: {confidence ? `${confidence}%` : "N/A"}
-            </Text>
+
+            {isModelPredicting ? (
+              <ActivityIndicator size="large" color="#0000ff" />
+            ) : (
+              <>
+                {classification && confidence !== null && (
+                  <>
+                    <Text style={styles.resultText}>Prediction: {classification}</Text>
+                    <Text style={styles.resultText}>Accuracy: {confidence}%</Text>
+                  </>
+                )}
+              </>
+            )}
+
             <TouchableOpacity
               style={styles.closeButton}
-              onPress={() => setIsModalVisible(false)}
+              onPress={() => {setIsModalVisible(false);
+                setClassification(null);
+                setConfidence(null);
+                setIsModalVisible(false);}}
             >
               <Text style={styles.closeButtonText}>Close</Text>
             </TouchableOpacity>
           </View>
         </View>
       </Modal>
+
+      <TouchableOpacity
+        style={styles.floatingButton}
+        onPress={() => setIsOptionsVisible(!isOptionsVisible)}
+      >
+        <AntDesign name="plus" size={28} color="#fff" />
+      </TouchableOpacity>
+
+      {isOptionsVisible && (
+        <View style={styles.optionsContainer}>
+          <TouchableOpacity style={styles.optionButton} onPress={openCamera}>
+            <AntDesign name="camera" size={28} color="#fff" />
+            <Text style={styles.optionText}>Camera</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.optionButton} onPress={openGallery}>
+            <AntDesign name="folder1" size={28} color="#fff" />
+            <Text style={styles.optionText}>Gallery</Text>
+          </TouchableOpacity>
+        </View>
+      )}
     </View>
   );
 }
@@ -160,36 +163,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     backgroundColor: "#f5f5f5",
-  },
-  status: {
-    marginTop: 20,
-    fontSize: 16,
-    color: "#555",
-  },
-  button: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#4CAF50",
-    padding: 12,
-    borderRadius: 8,
-    marginVertical: 10,
-  },
-  buttonText: {
-    color: "#fff",
-    fontSize: 16,
-    marginLeft: 10,
-  },
-  loadingOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  loadingText: {
-    color: "#fff",
-    fontSize: 18,
-    marginTop: 10,
   },
   modalContainer: {
     flex: 1,
@@ -210,8 +183,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   resultText: {
-    fontSize: 16,
-    color: "#333",
+    fontSize: 18,
     marginBottom: 10,
   },
   closeButton: {
@@ -223,5 +195,48 @@ const styles = StyleSheet.create({
   closeButtonText: {
     color: "#fff",
     fontSize: 16,
+  },
+  floatingButton: {
+    position: "absolute",
+    bottom: 30,
+    right: 30,
+    backgroundColor: "#4CAF50",
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 6,
+  },
+  optionsContainer: {
+    position: "absolute",
+    bottom: 100,
+    right: 30,
+    backgroundColor: "#4CAF50",
+    borderRadius: 10,
+    flexDirection: "row",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 6,
+  },
+  optionButton: {
+    backgroundColor: "#4CAF50",
+    width: 80,
+    height: 60,
+    borderRadius: 10,
+    justifyContent: "center",
+    alignItems: "center",
+    margin: 5,
+  },
+  optionText: {
+    color: "#fff",
+    fontSize: 14,
+    marginTop: 5,
   },
 });
