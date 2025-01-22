@@ -15,6 +15,8 @@ import * as ImagePicker from "expo-image-picker";
 import * as ImageManipulator from "expo-image-manipulator";
 import { AntDesign } from "@expo/vector-icons"; 
 import { plantDiseaseClasses } from "@/assets/model/modelCLasses";
+import FrontPage from "@/components/ui/front";
+import { saveClassifiedImage } from "@/lib/imageUtil";
 
 export default function HomeScreen() {
   const {
@@ -37,7 +39,8 @@ export default function HomeScreen() {
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isOptionsVisible, setIsOptionsVisible] = useState(false);
-
+  const [imageUri, setImageUri] = useState("");
+  
   useEffect(() => {
     const initializeTf = async () => {
       setIsTfReady(true);
@@ -55,9 +58,17 @@ export default function HomeScreen() {
 
   const openCamera = async () => {
     try {
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== "granted") {
+        console.log("Camera access denied. Please allow access to use this feature.");
+        return;
+      }
+      
       const cameraOptions = { mediaTypes: ImagePicker.MediaTypeOptions.Images };
+      
       const result = await ImagePicker.launchCameraAsync(cameraOptions);
       if (!result.canceled) {
+        
         processImage(result.assets[0].uri);
       } else {
         console.log("User canceled camera.");
@@ -66,12 +77,21 @@ export default function HomeScreen() {
       console.error("Error capturing image:", error);
     }
   };
+  
 
   const openGallery = async () => {
     try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== "granted") {
+        console.log("Media library access denied. Please allow access to use this feature.");
+        return;
+      }
+      
       const galleryOptions = { mediaTypes: ImagePicker.MediaTypeOptions.Images };
+      
       const result = await ImagePicker.launchImageLibraryAsync(galleryOptions);
       if (!result.canceled) {
+        
         processImage(result.assets[0].uri);
       } else {
         console.log("User canceled gallery.");
@@ -80,6 +100,7 @@ export default function HomeScreen() {
       console.error("Error selecting image:", error);
     }
   };
+  
 
   const processImage = async (imageUri: string) => {
     setIsProcessing(true);
@@ -92,15 +113,19 @@ export default function HomeScreen() {
       setSelectedImage(manipulatedImage.uri);
       setIsModalVisible(true);
       runModelPrediction(manipulatedImage.uri, "float32", plantDiseaseClasses);
+      
+      setImageUri(manipulatedImage.uri);
     } catch (error) {
       console.error("Error processing image:", error);
     } finally {
       setIsProcessing(false);
     }
   };
-
+  
+  
   return (
     <View style={styles.container}>
+      <FrontPage />
       <Modal visible={isModalVisible} animationType="slide" transparent>
         <View style={styles.modalContainer}>
           <View style={styles.modalContent}>
@@ -109,13 +134,23 @@ export default function HomeScreen() {
             )}
 
             {isModelPredicting ? (
-              <ActivityIndicator size="large" color="#0000ff" />
+              <>
+                <Text style={styles.resultText}>Disease: {classification}</Text>
+                <ActivityIndicator size="large" color="#0000ff" />
+              
+              </>
             ) : (
               <>
                 {classification && confidence !== null && (
                   <>
-                    <Text style={styles.resultText}>Prediction: {classification}</Text>
+                    <Text style={styles.resultText}>Disease: {classification}</Text>
                     <Text style={styles.resultText}>Accuracy: {confidence}%</Text>
+                    {(() => {
+                      saveClassifiedImage(imageUri, classification, confidence).catch((error) =>
+                        console.error("Error saving classified image:", error)
+                      );
+                      return null;
+                    })()}
                   </>
                 )}
               </>
@@ -126,7 +161,8 @@ export default function HomeScreen() {
               onPress={() => {setIsModalVisible(false);
                 setClassification(null);
                 setConfidence(null);
-                setIsModalVisible(false);}}
+                setIsModalVisible(false);
+              }}
             >
               <Text style={styles.closeButtonText}>Close</Text>
             </TouchableOpacity>
@@ -162,7 +198,6 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#f5f5f5",
   },
   modalContainer: {
     flex: 1,

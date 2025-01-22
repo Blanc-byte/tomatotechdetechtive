@@ -1,109 +1,269 @@
-import { StyleSheet, Image, Platform } from 'react-native';
-
-import { Collapsible } from '@/components/Collapsible';
-import { ExternalLink } from '@/components/ExternalLink';
-import ParallaxScrollView from '@/components/ParallaxScrollView';
-import { ThemedText } from '@/components/ThemedText';
-import { ThemedView } from '@/components/ThemedView';
-import { IconSymbol } from '@/components/ui/IconSymbol';
+import React, { useEffect, useState } from "react";
+import {
+  StyleSheet,
+  View,
+  Text,
+  FlatList,
+  Image,
+  TouchableOpacity,
+  Modal,
+  Button,
+  Alert,
+} from "react-native";
+import * as FileSystem from "expo-file-system";
+import { useIsFocused } from "@react-navigation/native"; // Import useIsFocused
+import * as Animatable from "react-native-animatable";  
 
 export default function TabTwoScreen() {
+  const [imagesData, setImagesData] = useState<{ uri: string; diseaseClass: string; confidence: string }[]>([]);
+  const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
+  const isFocused = useIsFocused(); 
+  const [ClassDisease, setClassDisease] = useState<{ uri: string; diseaseClass: string; confidence: string }[]>([]);
+  const diseaseSet = React.useRef(new Set()); 
+  const [modalVisible, setModalVisible] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+
+  const handleDeleteImage = async () => {
+    if (selectedImage) {
+      try {
+        await FileSystem.deleteAsync(selectedImage);
+        setImagesData((prev) =>
+          prev.filter((image) => image.uri !== selectedImage)
+        );
+        Alert.alert("Success", "Image deleted successfully");
+      } catch (error) {
+        console.error("Error deleting image:", error);
+        Alert.alert("Error", "Failed to delete the image");
+      } finally {
+        setModalVisible(false);
+        setSelectedImage(null);
+      }
+    }
+  };
+
+  useEffect(() => {
+    const loadImagesOnFocus = async () => {
+      try {
+        const imagesDirectory = FileSystem.documentDirectory + "images/";
+        const directories = await FileSystem.readDirectoryAsync(imagesDirectory);
+
+        const parsedData: { uri: string; diseaseClass: string; confidence: string }[] = [];
+
+        for (let dir of directories) {
+          const classDirectory = imagesDirectory + dir;
+
+          const files = await FileSystem.readDirectoryAsync(classDirectory);
+
+          for (let fileName of files) {
+            const diseaseClass = dir;
+            const confidenceWithExt = fileName.split(".")[0];
+            const confidence = confidenceWithExt.replace("_", ".");
+
+            // Check if diseaseClass is already in the Set
+            if (!diseaseSet.current.has(diseaseClass)) {
+              diseaseSet.current.add(diseaseClass); // Add to the Set
+              setClassDisease((prev) => [
+                ...prev,
+                {
+                  uri: classDirectory + "/" + fileName,
+                  diseaseClass: diseaseClass || "Unknown",
+                  confidence: confidence || "N/A",
+                },
+              ]);
+            }
+
+            parsedData.push({
+              uri: classDirectory + "/" + fileName,
+              diseaseClass: diseaseClass || "Unknown",
+              confidence: confidence || "N/A",
+            });
+          }
+        }
+
+        setImagesData(parsedData);
+      } catch (error) {
+        console.error("Error loading images:", error);
+      }
+    };
+
+    if (isFocused) {
+      loadImagesOnFocus();
+    }
+  }, [isFocused]);
+
+  const renderItem = ({ item }: { item: { uri: string; diseaseClass: string; confidence: string } }) => {
+    const isExpanded = expandedItems.has(item.diseaseClass);
+
+    return (
+      <View>
+        <TouchableOpacity
+          style={styles.imageContainer}
+          onPress={() => {
+            const newExpandedItems = new Set(expandedItems);
+            if (newExpandedItems.has(item.diseaseClass)) {
+              newExpandedItems.delete(item.diseaseClass);
+            } else {
+              newExpandedItems.add(item.diseaseClass);
+            }
+            setExpandedItems(newExpandedItems);
+          }}
+        >
+          <Text style={styles.diseaseClass}>{`${item.diseaseClass}`}</Text>
+        </TouchableOpacity>
+
+        {isExpanded && (
+          <FlatList
+            data={imagesData.filter((img) => img.diseaseClass === item.diseaseClass)}
+            keyExtractor={(imageItem, index) => index.toString()}
+            renderItem={renderImages}
+            style={styles.imagesList}
+            horizontal
+          />
+        )}
+      </View>
+    );
+  };
+
+  const renderImages = ({ item }: { item: { uri: string; diseaseClass: string; confidence: string } }) => (
+    <TouchableOpacity
+      onLongPress={() => {
+        setSelectedImage(item.uri);
+        setModalVisible(true);
+      }}
+      style={styles.imageWrapper}
+    >
+      <Image source={{ uri: item.uri }} style={styles.image} />
+      <Text style={styles.confidenceText}>{`${item.confidence}%`}</Text>
+    </TouchableOpacity>
+  );
+
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#D0D0D0', dark: '#353636' }}
-      headerImage={
-        <IconSymbol
-          size={310}
-          color="#808080"
-          name="chevron.left.forwardslash.chevron.right"
-          style={styles.headerImage}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Explore</ThemedText>
-      </ThemedView>
-      <ThemedText>This app includes example code to help you get started.</ThemedText>
-      <Collapsible title="File-based routing">
-        <ThemedText>
-          This app has two screens:{' '}
-          <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> and{' '}
-          <ThemedText type="defaultSemiBold">app/(tabs)/explore.tsx</ThemedText>
-        </ThemedText>
-        <ThemedText>
-          The layout file in <ThemedText type="defaultSemiBold">app/(tabs)/_layout.tsx</ThemedText>{' '}
-          sets up the tab navigator.
-        </ThemedText>
-        <ExternalLink href="https://docs.expo.dev/router/introduction">
-          <ThemedText type="link">Learn more</ThemedText>
-        </ExternalLink>
-      </Collapsible>
-      <Collapsible title="Android, iOS, and web support">
-        <ThemedText>
-          You can open this project on Android, iOS, and the web. To open the web version, press{' '}
-          <ThemedText type="defaultSemiBold">w</ThemedText> in the terminal running this project.
-        </ThemedText>
-      </Collapsible>
-      <Collapsible title="Images">
-        <ThemedText>
-          For static images, you can use the <ThemedText type="defaultSemiBold">@2x</ThemedText> and{' '}
-          <ThemedText type="defaultSemiBold">@3x</ThemedText> suffixes to provide files for
-          different screen densities
-        </ThemedText>
-        <Image source={require('@/assets/images/react-logo.png')} style={{ alignSelf: 'center' }} />
-        <ExternalLink href="https://reactnative.dev/docs/images">
-          <ThemedText type="link">Learn more</ThemedText>
-        </ExternalLink>
-      </Collapsible>
-      <Collapsible title="Custom fonts">
-        <ThemedText>
-          Open <ThemedText type="defaultSemiBold">app/_layout.tsx</ThemedText> to see how to load{' '}
-          <ThemedText style={{ fontFamily: 'SpaceMono' }}>
-            custom fonts such as this one.
-          </ThemedText>
-        </ThemedText>
-        <ExternalLink href="https://docs.expo.dev/versions/latest/sdk/font">
-          <ThemedText type="link">Learn more</ThemedText>
-        </ExternalLink>
-      </Collapsible>
-      <Collapsible title="Light and dark mode components">
-        <ThemedText>
-          This template has light and dark mode support. The{' '}
-          <ThemedText type="defaultSemiBold">useColorScheme()</ThemedText> hook lets you inspect
-          what the user's current color scheme is, and so you can adjust UI colors accordingly.
-        </ThemedText>
-        <ExternalLink href="https://docs.expo.dev/develop/user-interface/color-themes/">
-          <ThemedText type="link">Learn more</ThemedText>
-        </ExternalLink>
-      </Collapsible>
-      <Collapsible title="Animations">
-        <ThemedText>
-          This template includes an example of an animated component. The{' '}
-          <ThemedText type="defaultSemiBold">components/HelloWave.tsx</ThemedText> component uses
-          the powerful <ThemedText type="defaultSemiBold">react-native-reanimated</ThemedText>{' '}
-          library to create a waving hand animation.
-        </ThemedText>
-        {Platform.select({
-          ios: (
-            <ThemedText>
-              The <ThemedText type="defaultSemiBold">components/ParallaxScrollView.tsx</ThemedText>{' '}
-              component provides a parallax effect for the header image.
-            </ThemedText>
-          ),
-        })}
-      </Collapsible>
-    </ParallaxScrollView>
+    <>
+      <FlatList
+        data={ClassDisease}
+        keyExtractor={(item, index) => index.toString()}
+        renderItem={renderItem}
+        style={styles.flatList}
+      />
+      
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={modalVisible}
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <Text style={styles.modalText}>
+              Are you sure you want to delete this image?
+            </Text>
+            <View style={styles.modalButtons}>
+              <Button
+                title="Cancel"
+                onPress={() => {
+                  setModalVisible(false);
+                  setSelectedImage(null);
+                }}
+              />
+              <Button
+                title="Delete"
+                color="red"
+                onPress={handleDeleteImage}
+              />
+            </View>
+          </View>
+        </View>
+      </Modal>
+  </>
   );
 }
 
 const styles = StyleSheet.create({
-  headerImage: {
-    color: '#808080',
-    bottom: -90,
-    left: -35,
-    position: 'absolute',
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "center",
+    alignItems: "center",
   },
-  titleContainer: {
-    flexDirection: 'row',
-    gap: 8,
+  modalContainer: {
+    width: "80%",
+    backgroundColor: "#fff",
+    borderRadius: 10,
+    padding: 20,
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
+    elevation: 10,
+  },
+  modalText: {
+    fontSize: 18,
+    marginBottom: 20,
+    textAlign: "center",
+  },
+  modalButtons: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+    width: "100%",
+  },
+  flatList: {
+    flex: 1,
+    paddingHorizontal: 20,
+    backgroundColor: "#f4f4f4",
+    paddingTop: 100,
+  },
+  imageContainer: {
+    backgroundColor: "#ffffff",
+    padding: 12,
+    borderRadius: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    elevation: 3,
+    marginBottom: 10,
+  },
+  diseaseClass: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#333",
+    textAlign: "center",
+    padding: 12,
+    backgroundColor: "#e6f7ff",
+    borderRadius: 8,
+  },
+  imagesList: {
+    marginBottom: 20,
+    padding: 12,
+    borderRadius: 12,
+    backgroundColor: "rgba(240, 240, 240, 0.9)",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  image: {
+    width: 120,
+    height: 120,
+    marginRight: 8,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: "#ddd",
+  },
+  confidenceText: {
+    marginTop: 6,
+    fontSize: 14,
+    fontWeight: "bold",
+    color: "#333",
+    textAlign: "center",
+    backgroundColor: "#e0f7fa",
+    padding: 6,
+    borderRadius: 6,
+  },
+  imageWrapper: {
+    alignItems: "center",
+    marginBottom: 10,
   },
 });
