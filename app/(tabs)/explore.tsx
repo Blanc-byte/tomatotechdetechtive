@@ -11,8 +11,7 @@ import {
   Alert,
 } from "react-native";
 import * as FileSystem from "expo-file-system";
-import { useIsFocused } from "@react-navigation/native"; // Import useIsFocused
-import * as Animatable from "react-native-animatable";  
+import { useIsFocused } from "@react-navigation/native";
 
 export default function TabTwoScreen() {
   const [imagesData, setImagesData] = useState<{ uri: string; diseaseClass: string; confidence: string }[]>([]);
@@ -53,11 +52,22 @@ export default function TabTwoScreen() {
           const classDirectory = imagesDirectory + dir;
 
           const files = await FileSystem.readDirectoryAsync(classDirectory);
+          
+          if (files.length === 0) {
+            await FileSystem.deleteAsync(classDirectory);
+            console.log(`Deleted empty folder: ${classDirectory}`);
+            continue; 
+          }
 
           for (let fileName of files) {
             const diseaseClass = dir;
-            const confidenceWithExt = fileName.split(".")[0];
+            //console.log("diseaseClass: "+ diseaseClass);
+            const fileSplit = fileName.split(".")[0];
+            //console.log("fileSplit: "+ fileSplit);
+            const confidenceWithExt = fileSplit.split("-")[0];
+            //console.log("confidenceWithExt: "+ confidenceWithExt);
             const confidence = confidenceWithExt.replace("_", ".");
+            //console.log("confidence: "+ diseaseClass);
 
             // Check if diseaseClass is already in the Set
             if (!diseaseSet.current.has(diseaseClass)) {
