@@ -96,7 +96,11 @@ export function useTfliteModel() {
   ) => {
     const result = getMaxClassification(outputs, outputClasses);
     setConfidence(Number((result.maxValue * 100).toFixed(2)));
-
+    
+    console.log("outputs: "+outputs);
+    console.log("outputClasses: "+outputClasses);
+    console.log("result: "+result.className);
+    console.log("result: "+result.maxValue);
     // Update classification state
     setClassification(result.className);
   };
@@ -110,7 +114,9 @@ export function useTfliteModel() {
     );
 
     const maxValue = outputs[maxKey];
-
+    
+    console.log("maxValue: "+maxValue);
+    console.log("outputClasses: "+outputClasses[maxKey]);
     const className: string = String(outputClasses[maxKey]);
 
     return {

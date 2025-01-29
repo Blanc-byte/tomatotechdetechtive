@@ -40,6 +40,39 @@ export default function TabTwoScreen() {
     }
   };
 
+  // Function to delete all images from local storage
+  const handleDeleteAllImages = async () => {
+    try {
+      const imagesDirectory = FileSystem.documentDirectory + "images/";
+
+      const directories = await FileSystem.readDirectoryAsync(imagesDirectory);
+
+      // Loop through each directory (i.e., disease class) and delete the files
+      for (let dir of directories) {
+        const classDirectory = imagesDirectory + dir;
+        const files = await FileSystem.readDirectoryAsync(classDirectory);
+
+        // Delete each file in the directory
+        for (let file of files) {
+          const filePath = classDirectory + "/" + file;
+          await FileSystem.deleteAsync(filePath);
+        }
+
+        // Finally, delete the empty directory
+        await FileSystem.deleteAsync(classDirectory);
+        console.log(`Deleted directory: ${classDirectory}`);
+      }
+
+      // Update the state after deletion
+      setImagesData([]);
+      setClassDisease([]);
+      Alert.alert("Success", "All images deleted successfully");
+    } catch (error) {
+      console.error("Error deleting all images:", error);
+      Alert.alert("Error", "Failed to delete all images");
+    }
+  };
+
   useEffect(() => {
     const loadImagesOnFocus = async () => {
       try {
@@ -61,15 +94,10 @@ export default function TabTwoScreen() {
 
           for (let fileName of files) {
             const diseaseClass = dir;
-            //console.log("diseaseClass: "+ diseaseClass);
             const fileSplit = fileName.split(".")[0];
-            //console.log("fileSplit: "+ fileSplit);
             const confidenceWithExt = fileSplit.split("-")[0];
-            //console.log("confidenceWithExt: "+ confidenceWithExt);
             const confidence = confidenceWithExt.replace("_", ".");
-            //console.log("confidence: "+ diseaseClass);
 
-            // Check if diseaseClass is already in the Set
             if (!diseaseSet.current.has(diseaseClass)) {
               diseaseSet.current.add(diseaseClass); // Add to the Set
               setClassDisease((prev) => [
@@ -149,13 +177,16 @@ export default function TabTwoScreen() {
 
   return (
     <>
+    
       <FlatList
         data={ClassDisease}
         keyExtractor={(item, index) => index.toString()}
         renderItem={renderItem}
         style={styles.flatList}
       />
-      
+      <View style={styles.deleteAllContainer}>
+        <Button title="Delete All Images" color="black" onPress={handleDeleteAllImages}/>
+      </View>
       <Modal
         animationType="slide"
         transparent={true}
@@ -184,7 +215,8 @@ export default function TabTwoScreen() {
           </View>
         </View>
       </Modal>
-  </>
+
+    </>
   );
 }
 
@@ -275,5 +307,15 @@ const styles = StyleSheet.create({
   imageWrapper: {
     alignItems: "center",
     marginBottom: 10,
+  },
+  deleteAllContainer: {
+    marginTop: 20,
+    marginBottom: 30,
+    paddingHorizontal: 20,
+    backgroundColor: "#f4f4f4",
+    borderRadius: 10,
+    shadowColor: "#000",
+    alignItems: "center",
+    padding:10,
   },
 });

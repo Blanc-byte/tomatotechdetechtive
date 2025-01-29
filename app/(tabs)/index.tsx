@@ -51,7 +51,7 @@ export default function HomeScreen() {
 
   const loadModel = async () => {
     const tfliteModel = await loadTensorflowModel(
-      require("@/assets/model/model.tflite")
+      require("@/assets/model/efficientnetv2b2.tflite")
     );
     setModel(tfliteModel);
   };
@@ -107,7 +107,7 @@ export default function HomeScreen() {
     try {
       const manipulatedImage = await ImageManipulator.manipulateAsync(
         imageUri,
-        [{ resize: { width: 200, height: 200 } }],
+        [{ resize: { width: 224, height: 224 }}],
         { format: ImageManipulator.SaveFormat.JPEG, base64: true }
       );
       setSelectedImage(manipulatedImage.uri);
