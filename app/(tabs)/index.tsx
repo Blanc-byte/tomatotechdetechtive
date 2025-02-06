@@ -14,7 +14,7 @@ import { loadTensorflowModel } from "react-native-fast-tflite";
 import * as ImagePicker from "expo-image-picker";
 import * as ImageManipulator from "expo-image-manipulator";
 import { AntDesign } from "@expo/vector-icons"; 
-import { plantDiseaseClasses } from "@/assets/model/modelCLasses";
+import { plantDiseaseClasses } from "@/assets/model/updatedModel/classes";
 import FrontPage from "@/components/ui/front";
 import { saveClassifiedImage } from "@/lib/imageUtil";
 
@@ -51,7 +51,7 @@ export default function HomeScreen() {
 
   const loadModel = async () => {
     const tfliteModel = await loadTensorflowModel(
-      require("@/assets/model/efficientnetv2b2.tflite")
+      require("@/assets/model/updatedModel/efficientnetv2b2_model.tflite")
     );
     setModel(tfliteModel);
   };
@@ -155,7 +155,6 @@ export default function HomeScreen() {
                 )}
               </>
             )}
-
             <TouchableOpacity
               style={styles.closeButton}
               onPress={() => {setIsModalVisible(false);
