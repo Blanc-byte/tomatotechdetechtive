@@ -8,15 +8,28 @@ import {
   TouchableOpacity,
   Image,
   Alert,
+  Pressable,
+  ScrollView,  // Import ScrollView
 } from "react-native";
 import { useTfliteModel } from "@/hooks/useTfliteModel";
 import { loadTensorflowModel } from "react-native-fast-tflite";
 import * as ImagePicker from "expo-image-picker";
 import * as ImageManipulator from "expo-image-manipulator";
 import { AntDesign } from "@expo/vector-icons"; 
-import { plantDiseaseClasses } from "@/assets/model/updatedModel/classes";
+import { plantDiseaseClasses } from "@/assets/model/ClassesAndDescription/classes";
+import { plantDiseaseClassesDescription } from "@/assets/model/ClassesAndDescription/diseaseDescription";
+import { plantPreventionAndStrat } from "@/assets/model/ClassesAndDescription/preventionsAndStrategies";
 import FrontPage from "@/components/ui/front";
 import { saveClassifiedImage } from "@/lib/imageUtil";
+import BacterialSpot from "@/components/prescriptions/BacterialSpot";
+import TomatoEarlyBlight from "@/components/prescriptions/TomatoEarlyBlight";
+import LateBlight from "@/components/prescriptions/LateBlight";
+import LeafMold from "@/components/prescriptions/LeafMold";
+import MosaicVirus from "@/components/prescriptions/MosaicVirus";
+import SeptoriaLeafSpot from "@/components/prescriptions/SeptoriaLeafSpot";
+import SpiderMites from "@/components/prescriptions/SpiderMites";
+import TargetSpot from "@/components/prescriptions/TargetSpot";
+import TomatoYellowCurlVirus from "@/components/prescriptions/TomatoYellowCurlVirus";
 
 export default function HomeScreen() {
   const {
@@ -31,8 +44,10 @@ export default function HomeScreen() {
     model,
     setModel,
     runModelPrediction,
+    description,
+    index,
   } = useTfliteModel();
-  
+
   const [isTfReady, setIsTfReady] = useState(false);
   const [loadStatus, setLoadStatus] = useState("Initializing...");
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
@@ -40,7 +55,8 @@ export default function HomeScreen() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [isOptionsVisible, setIsOptionsVisible] = useState(false);
   const [imageUri, setImageUri] = useState("");
-  
+  const [hasSaved, setHasSaved] = useState(true);
+
   useEffect(() => {
     const initializeTf = async () => {
       setIsTfReady(true);
@@ -51,7 +67,7 @@ export default function HomeScreen() {
 
   const loadModel = async () => {
     const tfliteModel = await loadTensorflowModel(
-      require("@/assets/model/updatedModel/efficientnetv2b2_model.tflite")
+      require("@/assets/model/may7UpdatedModel/efficientnetv2b2_model.tflite")
     );
     setModel(tfliteModel);
   };
@@ -63,12 +79,11 @@ export default function HomeScreen() {
         console.log("Camera access denied. Please allow access to use this feature.");
         return;
       }
-      
+
       const cameraOptions = { mediaTypes: ImagePicker.MediaTypeOptions.Images };
-      
+
       const result = await ImagePicker.launchCameraAsync(cameraOptions);
       if (!result.canceled) {
-        
         processImage(result.assets[0].uri);
       } else {
         console.log("User canceled camera.");
@@ -77,7 +92,6 @@ export default function HomeScreen() {
       console.error("Error capturing image:", error);
     }
   };
-  
 
   const openGallery = async () => {
     try {
@@ -86,12 +100,11 @@ export default function HomeScreen() {
         console.log("Media library access denied. Please allow access to use this feature.");
         return;
       }
-      
+
       const galleryOptions = { mediaTypes: ImagePicker.MediaTypeOptions.Images };
-      
+
       const result = await ImagePicker.launchImageLibraryAsync(galleryOptions);
       if (!result.canceled) {
-        
         processImage(result.assets[0].uri);
       } else {
         console.log("User canceled gallery.");
@@ -100,7 +113,6 @@ export default function HomeScreen() {
       console.error("Error selecting image:", error);
     }
   };
-  
 
   const processImage = async (imageUri: string) => {
     setIsProcessing(true);
@@ -112,8 +124,7 @@ export default function HomeScreen() {
       );
       setSelectedImage(manipulatedImage.uri);
       setIsModalVisible(true);
-      runModelPrediction(manipulatedImage.uri, "float32", plantDiseaseClasses);
-      
+      runModelPrediction(manipulatedImage.uri, "float32", plantDiseaseClasses, plantDiseaseClassesDescription);
       setImageUri(manipulatedImage.uri);
     } catch (error) {
       console.error("Error processing image:", error);
@@ -121,50 +132,108 @@ export default function HomeScreen() {
       setIsProcessing(false);
     }
   };
-  
-  
+
+  const [showDescription, setShowDescription] = useState(false);
+  const [showModal, setShowModal] = useState(false);
+
   return (
     <View style={styles.container}>
       <FrontPage />
       <Modal visible={isModalVisible} animationType="slide" transparent>
         <View style={styles.modalContainer}>
           <View style={styles.modalContent}>
-            {selectedImage && (
-              <Image source={{ uri: selectedImage }} style={styles.image} />
-            )}
+            <ScrollView contentContainerStyle={styles.scrollContent}>
+              {selectedImage && (
+                <Image source={{ uri: selectedImage }} style={styles.image} />
+              )}
 
-            {isModelPredicting ? (
-              <>
-                <Text style={styles.resultText}>Disease: {classification}</Text>
-                <ActivityIndicator size="large" color="#0000ff" />
-              
-              </>
-            ) : (
-              <>
-                {classification && confidence !== null && (
-                  <>
-                    <Text style={styles.resultText}>Disease: {classification}</Text>
-                    <Text style={styles.resultText}>Accuracy: {confidence}%</Text>
-                    {(() => {
-                      saveClassifiedImage(imageUri, classification, confidence).catch((error) =>
-                        console.error("Error saving classified image:", error)
-                      );
-                      return null;
-                    })()}
-                  </>
-                )}
-              </>
-            )}
-            <TouchableOpacity
-              style={styles.closeButton}
-              onPress={() => {setIsModalVisible(false);
-                setClassification(null);
-                setConfidence(null);
-                setIsModalVisible(false);
-              }}
-            >
-              <Text style={styles.closeButtonText}>Close</Text>
-            </TouchableOpacity>
+              {isModelPredicting ? (
+                <>
+                  <Text style={styles.resultText}>Disease: {classification}</Text>
+                  <ActivityIndicator size="large" color="#0000ff" />
+                </>
+              ) : (
+                <>
+                  {classification && confidence !== null && (
+                    <>
+                      <Text style={styles.resultText}>{classification}</Text>
+                      {confidence > 90 && (
+                        <View style={{ marginTop: 10 }}>
+                          
+                          <Pressable onPress={() => setShowModal(!showModal)}>
+                            <Text style={styles.dropdownToggle}>
+                              Show Presciption {showModal}?
+                            </Text>
+                          </Pressable>
+
+                          <Pressable onPress={() => setShowDescription(!showDescription)}>
+                            <Text style={styles.dropdownToggle}>
+                              What is {classification}? {showDescription ? '▲' : '▼'}
+                            </Text>
+                          </Pressable>
+                          
+
+                          {showDescription && (
+                            <Text>{description}</Text>
+                          )}
+
+                          {index === "0" && showModal && (
+                            <BacterialSpot visible={true} onClose={() => setShowModal(false)} />
+                          )}
+                          {index === "1" && showModal && (
+                            <TomatoEarlyBlight visible={true} onClose={() => setShowModal(false)} />
+                          )}
+                          {index === "3" && showModal && (
+                            <LateBlight visible={true} onClose={() => setShowModal(false)} />
+                          )}
+                          {index === "4" && showModal && (
+                            <LeafMold visible={true} onClose={() => setShowModal(false)} />
+                          )}
+                          {index === "5" && showModal && (
+                            <MosaicVirus visible={true} onClose={() => setShowModal(false)} />
+                          )}
+                          {index === "6" && showModal && (
+                            <SeptoriaLeafSpot visible={true} onClose={() => setShowModal(false)} />
+                          )}
+                          {index === "7" && showModal && (
+                            <SpiderMites visible={true} onClose={() => setShowModal(false)} />
+                          )}
+                          {index === "8" && showModal && (
+                            <TargetSpot visible={true} onClose={() => setShowModal(false)} />
+                          )}
+                          {index === "9" && showModal && (
+                            <TomatoYellowCurlVirus visible={true} onClose={() => setShowModal(false)} />
+                          )}
+
+                        </View>
+                      )}
+                      {(() => {
+                        if(hasSaved && confidence > 90){
+                          saveClassifiedImage(imageUri, classification, confidence).catch((error) =>
+                            console.error("Error saving classified image:", error)
+                          );
+                          setHasSaved(false);
+                          return null;
+                        }
+                      })()}
+                    </>
+                  )}
+                </>
+              )}
+              <TouchableOpacity
+                style={styles.closeButton}
+                onPress={() => {
+                  setIsModalVisible(false);
+                  setClassification(null);
+                  setConfidence(null);
+                  setIsModalVisible(false);
+                  setHasSaved(true);
+                  setShowDescription(false);
+                }}
+              >
+                <Text style={styles.closeButtonText}>Close</Text>
+              </TouchableOpacity>
+            </ScrollView>
           </View>
         </View>
       </Modal>
@@ -206,13 +275,18 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     backgroundColor: "#fff",
-    padding: 20,
+    padding: 23,
     borderRadius: 10,
-    alignItems: "center",
+    justifyContent: "flex-start",
+    width: 400,
+    maxHeight: 780,
+  },
+  scrollContent: {
+    paddingBottom: 20,  // Add bottom padding if needed
   },
   image: {
-    width: 200,
-    height: 200,
+    width: 350,
+    height: 350,
     borderRadius: 10,
     marginBottom: 20,
   },
@@ -224,7 +298,8 @@ const styles = StyleSheet.create({
     backgroundColor: "#E57373",
     padding: 10,
     borderRadius: 5,
-    marginTop: 10,
+    marginTop: 20,
+    alignItems: "center",
   },
   closeButtonText: {
     color: "#fff",
@@ -272,5 +347,16 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 14,
     marginTop: 5,
+  },
+  dropdownToggle: {
+    fontSize: 16,
+    color: '#007bff',
+    textDecorationLine: 'underline',
+    marginTop:5,
+  },
+  diseaseDescription: {
+    marginTop: 8,
+    fontSize: 14,
+    color: '#444',
   },
 });

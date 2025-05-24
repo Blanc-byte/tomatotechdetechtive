@@ -45,7 +45,7 @@ export default function FrontPage() {
     <View style={styles.container}>
       {/* Logo and Title */}
       <Image
-        source={require("@/assets/images/blanc_logo.png")}
+        source={require("@/assets/images/icon.png")}
         style={styles.logo}
       />
       <Text style={styles.title}>Tomato Leaf Detectives</Text>
@@ -124,7 +124,7 @@ const styles = StyleSheet.create({
     marginTop: 20,
   },
   loginButton: {
-    backgroundColor: "#28A745", // Different color for Log In button
+    backgroundColor: "#28A745", 
     marginTop: 10,
   },
   buttonText: {

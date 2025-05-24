@@ -1,7 +1,5 @@
-import { useRef, useState } from "react";
-import { plantDiseaseClasses } from '@/assets/model/modelCLasses';
+import { useState } from "react";
 import { TensorflowModel } from "react-native-fast-tflite";
-import { Camera } from "react-native-vision-camera";
 import { convertToRGB } from "react-native-image-to-rgb";
 
 type imageDataType = "uint8" | "float32";
@@ -12,11 +10,15 @@ export function useTfliteModel() {
   const [confidence, setConfidence] = useState<number | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [model, setModel] = useState<TensorflowModel | null>(null);
+  const [description, setDescription] = useState<string | null>(null);
+  const [index, setIndex] = useState<string | null>(null);
+
 
   const runModelPrediction = (
     imageUri: string,
     dataType: imageDataType,
-    outputClasses: object
+    outputClasses: object,
+    outputClassesDescription: object
   ) => {
     if (!model) return console.log("Model is not ready");
 
@@ -30,8 +32,7 @@ export function useTfliteModel() {
       })
       .then((prediction) => {
         setIsModelPredicting(false);
-        /*  console.log("MODEL OUTPUT PREDICTION: ", prediction);*/
-        return performClassification(prediction[0], outputClasses);
+        return performClassification(prediction[0], outputClasses, outputClassesDescription);
       })
       .then(() => {
         console.log("Done, Image Classified");
@@ -92,22 +93,30 @@ export function useTfliteModel() {
 
   const performClassification = (
     outputs: Record<any, any>,
-    outputClasses: Record<any, any>
+    outputClasses: Record<any, any>,
+    outputClassesDescription: Record<any, any>
   ) => {
-    const result = getMaxClassification(outputs, outputClasses);
+    const result = getMaxClassification(outputs, outputClasses, outputClassesDescription);
     setConfidence(Number((result.maxValue * 100).toFixed(2)));
     
     console.log("outputs: "+outputs);
-    console.log("outputClasses: "+outputClasses);
+    // console.log("outputClasses: "+outputClasses);
     console.log("result: "+result.className);
     console.log("result: "+result.maxValue);
     // Update classification state
-    setClassification(result.className);
+    if(result.maxValue<0.90){
+      setClassification("Not a Tomato");
+    }else{
+      setClassification(result.className);
+      setDescription(result.classNameDesciption);
+    }
+    
   };
 
   const getMaxClassification = (
     outputs: Record<any, any>,
-    outputClasses: Record<any, any>
+    outputClasses: Record<any, any>,
+    outputClassesDescription: Record<any, any>
   ) => {
     const maxKey = Object.keys(outputs).reduce((a, b) =>
       outputs[a] > outputs[b] ? a : b
@@ -115,13 +124,17 @@ export function useTfliteModel() {
 
     const maxValue = outputs[maxKey];
     
+    console.log("maxKey: "+maxKey);
     console.log("maxValue: "+maxValue);
     console.log("outputClasses: "+outputClasses[maxKey]);
     const className: string = String(outputClasses[maxKey]);
+    const classNameDesciption: string = String(outputClassesDescription[maxKey]);
+    setIndex(maxKey);
 
     return {
       className,
       maxValue,
+      classNameDesciption,
     };
   };
 
@@ -137,5 +150,7 @@ export function useTfliteModel() {
     model,
     setModel,
     runModelPrediction,
+    description,
+    index,
   };
 }
