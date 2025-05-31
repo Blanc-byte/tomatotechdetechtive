@@ -18,18 +18,12 @@ import * as ImageManipulator from "expo-image-manipulator";
 import { AntDesign } from "@expo/vector-icons"; 
 import { plantDiseaseClasses } from "@/assets/model/ClassesAndDescription/classes";
 import { plantDiseaseClassesDescription } from "@/assets/model/ClassesAndDescription/diseaseDescription";
-import { plantPreventionAndStrat } from "@/assets/model/ClassesAndDescription/preventionsAndStrategies";
 import FrontPage from "@/components/ui/front";
 import { saveClassifiedImage } from "@/lib/imageUtil";
-import BacterialSpot from "@/components/prescriptions/BacterialSpot";
-import TomatoEarlyBlight from "@/components/prescriptions/TomatoEarlyBlight";
-import LateBlight from "@/components/prescriptions/LateBlight";
-import LeafMold from "@/components/prescriptions/LeafMold";
-import MosaicVirus from "@/components/prescriptions/MosaicVirus";
-import SeptoriaLeafSpot from "@/components/prescriptions/SeptoriaLeafSpot";
-import SpiderMites from "@/components/prescriptions/SpiderMites";
-import TargetSpot from "@/components/prescriptions/TargetSpot";
-import TomatoYellowCurlVirus from "@/components/prescriptions/TomatoYellowCurlVirus";
+import PrescriptionModal from "@/components/chat/PrescriptionModal";
+import LogInModal from "@/components/auth/login";
+import SignUpModal from "@/components/auth/signup";
+import { User } from "@/lib/User";
 
 export default function HomeScreen() {
   const {
@@ -56,6 +50,9 @@ export default function HomeScreen() {
   const [isOptionsVisible, setIsOptionsVisible] = useState(false);
   const [imageUri, setImageUri] = useState("");
   const [hasSaved, setHasSaved] = useState(true);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [showLogin, setShowLogin] = useState(true);
+  const [showSignUp, setShowSignUp] = useState(false);
 
   useEffect(() => {
     const initializeTf = async () => {
@@ -135,9 +132,99 @@ export default function HomeScreen() {
 
   const [showDescription, setShowDescription] = useState(false);
   const [showModal, setShowModal] = useState(false);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [prescription, setPrescription] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const getPrescription = async () => {
+    setLoading(true);
+    try {
+      const question = `Give a short prescription or treatment advice for tomato disease called ${classification}. No English Response, only in Tagalog. 
+      Provide source of the information with the link.`;
+      const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: "Bearer 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",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "deepseek/deepseek-r1-0528-qwen3-8b:free",
+          messages: [
+            {
+              role: "user",
+              content: question,
+            },
+          ],
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("OpenRouter API error:", response.status, errorText);
+        setPrescription('Unable to fetch prescription at this time.');
+        return;
+      }
+
+      const data = await response.json();
+      setPrescription(data.choices?.[0]?.message?.content ?? 'No prescription found.');
+    } catch (error) {
+      console.error("Error calling OpenRouter API:", error);
+      setPrescription('Unable to fetch prescription at this time.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleOpenModal = () => {
+    setModalVisible(true);
+    getPrescription();
+  };
+
+  // Handler for successful login (replace with real logic as needed)
+  const handleLoginSuccess = (user: User) => {
+    setCurrentUser(user);
+    setShowLogin(false);
+    setShowSignUp(false);
+  };
+
+  // Handler for switching to sign up
+  const handleSwitchToSignUp = () => {
+    setShowLogin(false);
+    setShowSignUp(true);
+  };
+
+  // Handler for switching to login
+  const handleSwitchToLogin = () => {
+    setShowSignUp(false);
+    setShowLogin(true);
+  };
+
+  // Handler for successful sign up (replace with real logic as needed)
+  const handleSignUpSuccess = (user: User) => {
+    setCurrentUser(user);
+    setShowSignUp(false);
+    setShowLogin(false);
+  };
 
   return (
     <View style={styles.container}>
+      {/* Show login/signup modals if not logged in */}
+      {showLogin && !currentUser && (
+        <LogInModal
+          visible={showLogin}
+          onClose={() => {}}
+          onSignUpPress={handleSwitchToSignUp}
+          onLoginSuccess={handleLoginSuccess}
+        />
+      )}
+      {showSignUp && !currentUser && (
+        <SignUpModal
+          visible={showSignUp}
+          onClose={() => {}}
+          onLogInPress={handleSwitchToLogin}
+          onSignUpSuccess={handleSignUpSuccess}
+        />
+      )}
       <FrontPage />
       <Modal visible={isModalVisible} animationType="slide" transparent>
         <View style={styles.modalContainer}>
@@ -159,51 +246,19 @@ export default function HomeScreen() {
                       <Text style={styles.resultText}>{classification}</Text>
                       {confidence > 90 && (
                         <View style={{ marginTop: 10 }}>
-                          
-                          <Pressable onPress={() => setShowModal(!showModal)}>
-                            <Text style={styles.dropdownToggle}>
-                              Show Presciption {showModal}?
-                            </Text>
-                          </Pressable>
+                          <View style={styles.container}>
+                            <Pressable onPress={handleOpenModal}>
+                              <Text style={styles.buttonText}>View prescription</Text>
+                            </Pressable>
 
-                          <Pressable onPress={() => setShowDescription(!showDescription)}>
-                            <Text style={styles.dropdownToggle}>
-                              What is {classification}? {showDescription ? '▲' : '▼'}
-                            </Text>
-                          </Pressable>
-                          
-
-                          {showDescription && (
-                            <Text>{description}</Text>
-                          )}
-
-                          {index === "0" && showModal && (
-                            <BacterialSpot visible={true} onClose={() => setShowModal(false)} />
-                          )}
-                          {index === "1" && showModal && (
-                            <TomatoEarlyBlight visible={true} onClose={() => setShowModal(false)} />
-                          )}
-                          {index === "3" && showModal && (
-                            <LateBlight visible={true} onClose={() => setShowModal(false)} />
-                          )}
-                          {index === "4" && showModal && (
-                            <LeafMold visible={true} onClose={() => setShowModal(false)} />
-                          )}
-                          {index === "5" && showModal && (
-                            <MosaicVirus visible={true} onClose={() => setShowModal(false)} />
-                          )}
-                          {index === "6" && showModal && (
-                            <SeptoriaLeafSpot visible={true} onClose={() => setShowModal(false)} />
-                          )}
-                          {index === "7" && showModal && (
-                            <SpiderMites visible={true} onClose={() => setShowModal(false)} />
-                          )}
-                          {index === "8" && showModal && (
-                            <TargetSpot visible={true} onClose={() => setShowModal(false)} />
-                          )}
-                          {index === "9" && showModal && (
-                            <TomatoYellowCurlVirus visible={true} onClose={() => setShowModal(false)} />
-                          )}
+                            <PrescriptionModal
+                              visible={modalVisible}
+                              onClose={() => setModalVisible(false)}
+                              loading={loading}
+                              prescription={prescription}
+                              classification={classification}
+                            />
+                          </View>
 
                         </View>
                       )}
@@ -358,5 +413,10 @@ const styles = StyleSheet.create({
     marginTop: 8,
     fontSize: 14,
     color: '#444',
+  },
+  buttonText: {
+    fontSize: 16,
+    color: '#007AFF',
+    paddingVertical: 6,
   },
 });

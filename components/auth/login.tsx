@@ -1,34 +1,53 @@
 import React, { useState } from "react";
 import { Modal, View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from "react-native";
+import { User, supabase } from "@/lib/User";
 
 interface LogInModalProps {
   visible: boolean;
   onClose: () => void;
   onSignUpPress: () => void; // This function will handle switching to the SignUpModal
+  onLoginSuccess: (user: User) => void;
 }
 
-export default function LogInModal({ visible, onClose, onSignUpPress }: LogInModalProps) {
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
+export default function LogInModal({ visible, onClose, onSignUpPress, onLoginSuccess }: LogInModalProps) {
+  const [email, setEmail] = useState("");
 
   const isValidEmail = (email: string) => {
     const regex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
     return regex.test(email);
   };
 
-  const handleLogin = () => {
-    if (!username || !password) {
-      Alert.alert("Error", "Please fill in both fields.");
+  const handleLogin = async () => {
+    if (!email) {
+      Alert.alert("Error", "Please enter your email.");
       return;
     }
-
-    if (!isValidEmail(username)) {
+    if (!isValidEmail(email)) {
       Alert.alert("Error", "Please enter a valid email address.");
       return;
     }
-
-    // Proceed with login logic if validation passes
+    // Check if user exists in Supabase
+    const { data, error } = await supabase
+      .from('users')
+      .select('*')
+      .eq('email', email)
+      .single();
+    if (error || !data) {
+      Alert.alert("Not Found", "No account found for this email. Please sign up.");
+      return;
+    }
+    // User found, log in
+    const user: User = {
+      id: data.id,
+      Fname: data.Fname,
+      Lname: data.Lname,
+      email: data.email,
+      Location: data.Location,
+      createdAt: new Date(data.createdAt),
+      updatedAt: new Date(data.updatedAt),
+    };
     Alert.alert("Success", "Logged In!");
+    onLoginSuccess(user);
   };
 
   return (
@@ -41,16 +60,9 @@ export default function LogInModal({ visible, onClose, onSignUpPress }: LogInMod
           <TextInput
             style={styles.input}
             placeholder="Email"
-            value={username}
-            onChangeText={setUsername}
+            value={email}
+            onChangeText={setEmail}
             keyboardType="email-address"
-          />
-          <TextInput
-            style={styles.input}
-            placeholder="Password"
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
           />
 
           <TouchableOpacity style={styles.button} onPress={handleLogin}>

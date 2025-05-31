@@ -8,39 +8,39 @@ import {
   StyleSheet,
   Alert,
 } from "react-native";
+import { User, supabase } from "@/lib/User";
 
 interface SignUpModalProps {
   visible: boolean;
   onClose: () => void;
   onLogInPress: () => void;
+  onSignUpSuccess: (user: User) => void;
 }
 
 interface FormState {
   firstname: string;
   lastname: string;
-  company: string;
   gmail: string;
-  password: string; // Add password field
+  location: string;
 }
 
-export default function SignUpModal({ visible, onClose, onLogInPress }: SignUpModalProps) {
+export default function SignUpModal({ visible, onClose, onLogInPress, onSignUpSuccess }: SignUpModalProps) {
   const [form, setForm] = useState<FormState>({
     firstname: "",
     lastname: "",
-    company: "",
     gmail: "",
-    password: "", // Initialize password
+    location: "",
   });
 
   const handleChange = (name: keyof FormState, value: string) => {
     setForm({ ...form, [name]: value });
   };
 
-  const handleSignUp = () => {
-    const { firstname, lastname, gmail, password } = form;
+  const handleSignUp = async () => {
+    const { firstname, lastname, gmail, location } = form;
 
     // Validate fields
-    if (!firstname || !lastname || !gmail || !password) {
+    if (!firstname || !lastname || !gmail || !location) {
       Alert.alert("Error", "All fields are required.");
       return;
     }
@@ -52,16 +52,30 @@ export default function SignUpModal({ visible, onClose, onLogInPress }: SignUpMo
       return;
     }
 
-    // Password validation (minimum 6 characters for example) ug umaabutay 
-    if (password.length < 6) {
-      Alert.alert("Error", "Password must be at least 6 characters.");
+    // Create user object
+    const user: User = {
+      id: Date.now().toString(),
+      Fname: firstname,
+      Lname: lastname,
+      email: gmail,
+      location: location,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    // Insert into Supabase Users table
+    const { error } = await supabase
+      .from('Users')
+      .insert([{ id: user.id, Fname: user.Fname, Lname: user.Lname, email: user.email, location: user.location, createdAt: user.createdAt, updatedAt: user.updatedAt }]);
+    if (error) {
+      Alert.alert("Error", "Failed to sign up: " + error.message);
       return;
     }
 
-    // Success message
     Alert.alert("Success", `Welcome, ${firstname}! Your account has been created.`);
+    onSignUpSuccess(user);
     onClose();
-    setForm({ firstname: "", lastname: "", company: "", gmail: "", password: "" });
+    setForm({ firstname: "", lastname: "", gmail: "", location: "" });
   };
 
   return (
@@ -84,25 +98,16 @@ export default function SignUpModal({ visible, onClose, onLogInPress }: SignUpMo
           />
           <TextInput
             style={styles.input}
-            placeholder="Company"
-            value={form.company}
-            onChangeText={(text) => handleChange("company", text)}
-          />
-          <TextInput
-            style={styles.input}
             placeholder="Gmail"
             keyboardType="email-address"
             value={form.gmail}
             onChangeText={(text) => handleChange("gmail", text)}
           />
-
-          {/* Password field */}
           <TextInput
             style={styles.input}
-            placeholder="Password"
-            secureTextEntry={true} // Mask the password
-            value={form.password}
-            onChangeText={(text) => handleChange("password", text)}
+            placeholder="Location"
+            value={form.location}
+            onChangeText={(text) => handleChange("location", text)}
           />
 
           <TouchableOpacity style={styles.button} onPress={handleSignUp}>
@@ -111,10 +116,6 @@ export default function SignUpModal({ visible, onClose, onLogInPress }: SignUpMo
 
           <TouchableOpacity onPress={onLogInPress} style={styles.switchButton}>
             <Text>Already have an account? <Text style={styles.switchButtonText}>Log In</Text></Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-            <Text style={styles.closeButtonText}>Close</Text>
           </TouchableOpacity>
         </View>
       </View>
