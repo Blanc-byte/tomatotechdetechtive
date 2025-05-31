@@ -42,7 +42,7 @@ export default function LogInModal({ visible, onClose, onSignUpPress, onLoginSuc
       Fname: data.Fname,
       Lname: data.Lname,
       email: data.email,
-      Location: data.Location,
+      location: data.location,
       createdAt: new Date(data.createdAt),
       updatedAt: new Date(data.updatedAt),
     };

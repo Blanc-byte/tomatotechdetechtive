@@ -21,8 +21,6 @@ import { plantDiseaseClassesDescription } from "@/assets/model/ClassesAndDescrip
 import FrontPage from "@/components/ui/front";
 import { saveClassifiedImage } from "@/lib/imageUtil";
 import PrescriptionModal from "@/components/chat/PrescriptionModal";
-import LogInModal from "@/components/auth/login";
-import SignUpModal from "@/components/auth/signup";
 import { User } from "@/lib/User";
 
 export default function HomeScreen() {
@@ -144,7 +142,7 @@ export default function HomeScreen() {
       const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
         method: "POST",
         headers: {
-          Authorization: "Bearer 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",
+          Authorization: "Bearer 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",
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
@@ -180,51 +178,9 @@ export default function HomeScreen() {
     getPrescription();
   };
 
-  // Handler for successful login (replace with real logic as needed)
-  const handleLoginSuccess = (user: User) => {
-    setCurrentUser(user);
-    setShowLogin(false);
-    setShowSignUp(false);
-  };
-
-  // Handler for switching to sign up
-  const handleSwitchToSignUp = () => {
-    setShowLogin(false);
-    setShowSignUp(true);
-  };
-
-  // Handler for switching to login
-  const handleSwitchToLogin = () => {
-    setShowSignUp(false);
-    setShowLogin(true);
-  };
-
-  // Handler for successful sign up (replace with real logic as needed)
-  const handleSignUpSuccess = (user: User) => {
-    setCurrentUser(user);
-    setShowSignUp(false);
-    setShowLogin(false);
-  };
-
   return (
     <View style={styles.container}>
-      {/* Show login/signup modals if not logged in */}
-      {showLogin && !currentUser && (
-        <LogInModal
-          visible={showLogin}
-          onClose={() => {}}
-          onSignUpPress={handleSwitchToSignUp}
-          onLoginSuccess={handleLoginSuccess}
-        />
-      )}
-      {showSignUp && !currentUser && (
-        <SignUpModal
-          visible={showSignUp}
-          onClose={() => {}}
-          onLogInPress={handleSwitchToLogin}
-          onSignUpSuccess={handleSignUpSuccess}
-        />
-      )}
+      
       <FrontPage />
       <Modal visible={isModalVisible} animationType="slide" transparent>
         <View style={styles.modalContainer}>

@@ -1,16 +1,20 @@
 import React from 'react';
 import { Modal, View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { supabase } from '@/lib/supabase';
+import { supabase } from '@/lib/User';
 
 export default function AuthModal({ visible, onAuthSuccess }: { visible: boolean, onAuthSuccess: (user: any) => void }) {
   const handleGoogleSignIn = async () => {
-    const { user, error } = await supabase.auth.signInWithOAuth({
+    const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
     });
     if (error) {
       alert('Google sign-in failed');
-    } else if (user) {
-      onAuthSuccess(user);
+    } else if (data && data.provider && data.url) {
+      // The OAuth flow will redirect, so we can't get the user here.
+      // Optionally, you can open the URL in a browser if needed.
+      // For now, just return or do nothing.
+    } else {
+      alert('Google sign-in failed');
     }
   };
 
