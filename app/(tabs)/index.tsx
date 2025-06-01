@@ -7,9 +7,8 @@ import {
   Modal,
   TouchableOpacity,
   Image,
-  Alert,
   Pressable,
-  ScrollView,  // Import ScrollView
+  ScrollView,
 } from "react-native";
 import { useTfliteModel } from "@/hooks/useTfliteModel";
 import { loadTensorflowModel } from "react-native-fast-tflite";
@@ -21,7 +20,6 @@ import { plantDiseaseClassesDescription } from "@/assets/model/ClassesAndDescrip
 import FrontPage from "@/components/ui/front";
 import { saveClassifiedImage } from "@/lib/imageUtil";
 import PrescriptionModal from "@/components/chat/PrescriptionModal";
-import { User } from "@/lib/User";
 
 export default function HomeScreen() {
   const {
@@ -48,10 +46,8 @@ export default function HomeScreen() {
   const [isOptionsVisible, setIsOptionsVisible] = useState(false);
   const [imageUri, setImageUri] = useState("");
   const [hasSaved, setHasSaved] = useState(true);
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [showLogin, setShowLogin] = useState(true);
-  const [showSignUp, setShowSignUp] = useState(false);
 
+  
   useEffect(() => {
     const initializeTf = async () => {
       setIsTfReady(true);
@@ -59,6 +55,7 @@ export default function HomeScreen() {
     };
     initializeTf();
   }, []);
+
 
   const loadModel = async () => {
     const tfliteModel = await loadTensorflowModel(
@@ -129,7 +126,6 @@ export default function HomeScreen() {
   };
 
   const [showDescription, setShowDescription] = useState(false);
-  const [showModal, setShowModal] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [prescription, setPrescription] = useState('');
   const [loading, setLoading] = useState(false);
@@ -137,12 +133,15 @@ export default function HomeScreen() {
   const getPrescription = async () => {
     setLoading(true);
     try {
-      const question = `Give a short prescription or treatment advice for tomato disease called ${classification}. No English Response, only in Tagalog. 
-      Provide source of the information with the link.`;
-      const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      const question = `
+        Give a prescription or treatment advice for tomato disease called ${classification}. 
+        No English Response, only in Tagalog and Pure Text in English. 
+        Provide source of the information with the link in english.
+      `;
+      const response = await fetch("sad", {
         method: "POST",
-        headers: {
-          Authorization: "Bearer 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",
+        headers: { 
+          Authorization: `sad`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
@@ -177,10 +176,8 @@ export default function HomeScreen() {
     setModalVisible(true);
     getPrescription();
   };
-
   return (
     <View style={styles.container}>
-      
       <FrontPage />
       <Modal visible={isModalVisible} animationType="slide" transparent>
         <View style={styles.modalContainer}>
@@ -293,7 +290,7 @@ const styles = StyleSheet.create({
     maxHeight: 780,
   },
   scrollContent: {
-    paddingBottom: 20,  // Add bottom padding if needed
+    paddingBottom: 20,
   },
   image: {
     width: 350,
