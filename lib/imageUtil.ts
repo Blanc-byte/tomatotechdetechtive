@@ -46,6 +46,7 @@ export const saveClassifiedImage = async (
     });
 
     console.log("Image saved successfully:", filePath);
+    return filePath;
   } catch (error) {
     console.error("Error saving image:", error);
   }

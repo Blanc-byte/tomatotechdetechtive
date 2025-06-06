@@ -1,4 +1,4 @@
-import { StyleSheet, View, Text, Image } from "react-native";
+import { StyleSheet, View, Text, Image, Linking } from "react-native";
 
 export default function FrontPage() {
   return (
@@ -8,11 +8,25 @@ export default function FrontPage() {
         source={require("@/assets/images/icon.png")}
         style={styles.logo}
       />
-      <Text style={styles.title}>Tomato Leaf Detectives</Text>
+      <Text style={styles.title}>Tomato Tech Detectives</Text>
       <Text style={styles.description}>
         Empowering farmers with AI-driven solutions to detect and prevent
         diseases in tomato plants.
       </Text>
+      <View>
+        <Text style={{ fontSize: 14, color: "#888", marginTop: 30, textAlign: "center" }}>
+          Developed by:{" "}
+          <Text
+            style={{ fontWeight: "bold", color: "#43a047", textDecorationLine: "underline" }}
+            onPress={() => {
+              Linking.openURL("https://github.com/Blanc-byte");
+            }}
+          >
+            @Blanc
+          </Text>
+        </Text>
+      </View>
+      
     </View>
   );
 }
@@ -22,7 +36,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "gray",
+    backgroundColor: "#eaffea",
   },
   logo: {
     width: 200,

@@ -17,7 +17,7 @@ const PrescriptionModal: React.FC<PrescriptionModal> = ({
   classification,
 }) => {
   return (
-    <Modal animationType="fade" transparent visible={visible} onRequestClose={onClose}>
+    <Modal style={styles.modalContainerWhole} animationType="fade" transparent visible={visible} onRequestClose={onClose}>
       <View style={styles.modalContainer}>
         <View style={styles.modalView}>
           <Text style={styles.modalTitle}>Prescription for {classification}</Text>
@@ -41,6 +41,9 @@ const PrescriptionModal: React.FC<PrescriptionModal> = ({
 export default PrescriptionModal;
 
 const styles = StyleSheet.create({
+  modalContainerWhole: {
+    backgroundColor: '#eaffea',
+  },
   modalContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -51,7 +54,7 @@ const styles = StyleSheet.create({
   modalView: {
     width: '92%',
     maxHeight: '85%',
-    backgroundColor: '#fff',
+    backgroundColor: '#eaffea',
     borderRadius: 20,
     paddingHorizontal: 24,
     paddingTop: 28,

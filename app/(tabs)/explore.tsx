@@ -12,6 +12,8 @@ import {
 } from "react-native";
 import * as FileSystem from "expo-file-system";
 import { useIsFocused } from "@react-navigation/native";
+import DiseaseGalleryModal from "../components/DiseaseGalleryModal";
+import { MaterialIcons } from "@expo/vector-icons";
 
 export default function TabTwoScreen() {
   const [imagesData, setImagesData] = useState<{ uri: string; diseaseClass: string; confidence: string }[]>([]);
@@ -21,6 +23,8 @@ export default function TabTwoScreen() {
   const diseaseSet = React.useRef(new Set()); 
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [selectedFeature, setSelectedFeature] = useState<string | null>(null);
+  const [galleryVisible, setGalleryVisible] = useState(false);
 
   const handleDeleteImage = async () => {
     if (selectedImage) {
@@ -51,9 +55,15 @@ export default function TabTwoScreen() {
       for (let dir of directories) {
         const classDirectory = imagesDirectory + dir;
         const files = await FileSystem.readDirectoryAsync(classDirectory);
-
+        // Only include image files
+        const imageFiles = files.filter(file => file.endsWith('.jpg') || file.endsWith('.jpeg') || file.endsWith('.png'));
+        if (imageFiles.length === 0) {
+          await FileSystem.deleteAsync(classDirectory);
+          console.log(`Deleted empty folder: ${classDirectory}`);
+          continue;
+        }
         // Delete each file in the directory
-        for (let file of files) {
+        for (let file of imageFiles) {
           const filePath = classDirectory + "/" + file;
           await FileSystem.deleteAsync(filePath);
         }
@@ -73,91 +83,94 @@ export default function TabTwoScreen() {
     }
   };
 
-  useEffect(() => {
-    const loadImagesOnFocus = async () => {
-      try {
-        const imagesDirectory = FileSystem.documentDirectory + "images/";
-        const directories = await FileSystem.readDirectoryAsync(imagesDirectory);
+  const handleDeleteAllImagesConfirm = () => {
+    Alert.alert(
+      'Delete All Images',
+      'Are you sure you want to delete all images? This action cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Delete', style: 'destructive', onPress: handleDeleteAllImages },
+      ]
+    );
+  };
 
-        const parsedData: { uri: string; diseaseClass: string; confidence: string }[] = [];
+  // Move loadImagesOnFocus to top-level so it can be called from onDelete
+  const loadImagesOnFocus = async () => {
+    try {
+      const imagesDir = FileSystem.documentDirectory + 'images/';
 
-        for (let dir of directories) {
-          const classDirectory = imagesDirectory + dir;
-
-          const files = await FileSystem.readDirectoryAsync(classDirectory);
-          
-          if (files.length === 0) {
-            await FileSystem.deleteAsync(classDirectory);
-            console.log(`Deleted empty folder: ${classDirectory}`);
-            continue; 
-          }
-
-          for (let fileName of files) {
-            const diseaseClass = dir;
-            const fileSplit = fileName.split(".")[0];
-            const confidenceWithExt = fileSplit.split("-")[0];
-            const confidence = confidenceWithExt.replace("_", ".");
-
-            if (!diseaseSet.current.has(diseaseClass)) {
-              diseaseSet.current.add(diseaseClass); // Add to the Set
-              setClassDisease((prev) => [
-                ...prev,
-                {
-                  uri: classDirectory + "/" + fileName,
-                  diseaseClass: diseaseClass || "Unknown",
-                  confidence: confidence || "N/A",
-                },
-              ]);
-            }
-
-            parsedData.push({
-              uri: classDirectory + "/" + fileName,
-              diseaseClass: diseaseClass || "Unknown",
-              confidence: confidence || "N/A",
-            });
-          }
+      async function ensureImagesDirExists() {
+        const dirInfo = await FileSystem.getInfoAsync(imagesDir);
+        if (!dirInfo.exists) {
+          await FileSystem.makeDirectoryAsync(imagesDir, { intermediates: true });
         }
-
-        setImagesData(parsedData);
-      } catch (error) {
-        console.error("Error loading images:", error);
       }
-    };
 
+      await ensureImagesDirExists();
+      const images = await FileSystem.readDirectoryAsync(imagesDir);
+
+      const parsedData: { uri: string; diseaseClass: string; confidence: string }[] = [];
+      diseaseSet.current = new Set(); // Reset diseaseSet to avoid duplicates
+      setClassDisease([]); // Reset ClassDisease
+
+      for (let dir of images) {
+        const classDirectory = imagesDir + dir;
+        const files = await FileSystem.readDirectoryAsync(classDirectory);
+        // Only include image files
+        const imageFiles = files.filter(file => file.endsWith('.jpg') || file.endsWith('.jpeg') || file.endsWith('.png'));
+        if (imageFiles.length === 0) {
+          await FileSystem.deleteAsync(classDirectory);
+          console.log(`Deleted empty folder: ${classDirectory}`);
+          continue;
+        }
+        for (let fileName of imageFiles) {
+          const diseaseClass = dir;
+          const fileSplit = fileName.split(".")[0];
+          const confidenceWithExt = fileSplit.split("-")[0];
+          const confidence = confidenceWithExt.replace("_", ".");
+          if (!diseaseSet.current.has(diseaseClass)) {
+            diseaseSet.current.add(diseaseClass);
+            setClassDisease((prev) => [
+              ...prev,
+              {
+                uri: classDirectory + "/" + fileName,
+                diseaseClass: diseaseClass || "Unknown",
+                confidence: confidence || "N/A",
+              },
+            ]);
+          }
+          parsedData.push({
+            uri: classDirectory + "/" + fileName,
+            diseaseClass: diseaseClass || "Unknown",
+            confidence: confidence || "N/A",
+          });
+        }
+      }
+
+      setImagesData(parsedData);
+    } catch (error) {
+      console.error("Error loading images:", error);
+    }
+  };
+
+  useEffect(() => {
     if (isFocused) {
       loadImagesOnFocus();
     }
   }, [isFocused]);
 
   const renderItem = ({ item }: { item: { uri: string; diseaseClass: string; confidence: string } }) => {
-    const isExpanded = expandedItems.has(item.diseaseClass);
-
     return (
       <View>
         <TouchableOpacity
           style={styles.imageContainer}
           onPress={() => {
-            const newExpandedItems = new Set(expandedItems);
-            if (newExpandedItems.has(item.diseaseClass)) {
-              newExpandedItems.delete(item.diseaseClass);
-            } else {
-              newExpandedItems.add(item.diseaseClass);
-            }
-            setExpandedItems(newExpandedItems);
+            setSelectedFeature(item.diseaseClass);
+            setGalleryVisible(true);
           }}
         >
           <Text style={styles.diseaseClass}>{`${item.diseaseClass}`}</Text>
         </TouchableOpacity>
-
-        {isExpanded && (
-          <FlatList
-            data={imagesData.filter((img) => img.diseaseClass === item.diseaseClass)}
-            keyExtractor={(imageItem, index) => index.toString()}
-            renderItem={renderImages}
-            style={styles.imagesList}
-            horizontal
-          />
-        )}
       </View>
     );
   };
@@ -182,10 +195,12 @@ export default function TabTwoScreen() {
         data={ClassDisease}
         keyExtractor={(item, index) => index.toString()}
         renderItem={renderItem}
-        style={styles.flatList}
+        style={[styles.flatList, { backgroundColor: '#eaffea' }]}
       />
-      <View style={styles.deleteAllContainer}>
-        <Button title="Delete All Images" color="black" onPress={handleDeleteAllImages}/>
+      <View style={[styles.fabContainer]}>
+        <TouchableOpacity style={styles.fab} onPress={handleDeleteAllImagesConfirm}>
+          <MaterialIcons name="delete-forever" size={28} color="#fff" />
+        </TouchableOpacity>
       </View>
       <Modal
         animationType="slide"
@@ -215,6 +230,20 @@ export default function TabTwoScreen() {
           </View>
         </View>
       </Modal>
+      {galleryVisible && selectedFeature && (
+        <DiseaseGalleryModal
+          visible={galleryVisible}
+          onClose={() => setGalleryVisible(false)}
+          images={imagesData.filter(img => img.diseaseClass === selectedFeature)}
+          diseaseName={selectedFeature}
+          onDelete={() => {
+            setGalleryVisible(false);
+            setTimeout(() => {
+              loadImagesOnFocus();
+            }, 300);
+          }}
+        />
+      )}
 
     </>
   );
@@ -243,6 +272,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     marginBottom: 20,
     textAlign: "center",
+    color: "#333",
   },
   modalButtons: {
     flexDirection: "row",
@@ -252,28 +282,31 @@ const styles = StyleSheet.create({
   flatList: {
     flex: 1,
     paddingHorizontal: 20,
-    backgroundColor: "#f4f4f4",
+    backgroundColor: "#eaffea",
     paddingTop: 100,
   },
   imageContainer: {
-    backgroundColor: "#ffffff",
-    padding: 12,
-    borderRadius: 12,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 6,
+    backgroundColor: '#e8f5e9',
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    borderRadius: 16,
+    marginBottom: 14,
+    marginHorizontal: 8,
+    shadowColor: '#43a047',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.10,
+    shadowRadius: 8,
     elevation: 3,
-    marginBottom: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   diseaseClass: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: "#333",
-    textAlign: "center",
-    padding: 12,
-    backgroundColor: "#e6f7ff",
-    borderRadius: 8,
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#256029',
+    textAlign: 'center',
+    letterSpacing: 0.5,
+    fontFamily: 'System',
   },
   imagesList: {
     marginBottom: 20,
@@ -308,14 +341,23 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 10,
   },
-  deleteAllContainer: {
-    marginTop: 20,
-    marginBottom: 30,
-    paddingHorizontal: 20,
-    backgroundColor: "#f4f4f4",
-    borderRadius: 10,
-    shadowColor: "#000",
-    alignItems: "center",
-    padding:10,
+  fabContainer: {
+    position: 'absolute',
+    bottom: 30,
+    right: 30,
+    zIndex: 100,
+  },
+  fab: {
+    backgroundColor: '#E57373',
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 6,
   },
 });
